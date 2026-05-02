@@ -1,7 +1,9 @@
 ﻿"use client";
+export const dynamic = "force-dynamic";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { Suspense } from "react";
 
 interface HelpContent {
   summary: string;
@@ -29,7 +31,7 @@ interface TestResult {
   feedback?: string;
 }
 
-export default function Abi() {
+function AbiContent() {
   const params = useSearchParams();
   const subject = params.get("subject");
   const task = params.get("task");
@@ -592,5 +594,12 @@ ${percentage >= 80 ? 'Väga hea töö! Sa oled seda teemat hästi omandanud.' :
       </div>
       </div>
     </main>
+  );
+}
+export default function Abi() {
+  return (
+    <Suspense fallback={<div>Laeb...</div>}>
+      <AbiContent />
+    </Suspense>
   );
 }
