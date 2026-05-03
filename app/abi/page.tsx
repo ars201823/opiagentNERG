@@ -265,6 +265,7 @@ function AbiContent() {
       setQuestionStartTime(Date.now());
       setShowHelp(false);
       setShowHelpOverlay(false);
+      setShowHelpPrompt(false);
       setCurrentAnswer("");
       if (helpTimeout) clearTimeout(helpTimeout);
     } else {
@@ -742,8 +743,8 @@ ${percentage >= 80 ? 'Väga hea töö! Sa oled seda teemat hästi omandanud.' :
                     🔑 Abiaken
                   </button>
                 )}
-                console.log(canProceed)
-                {canProceed === true &&(
+
+                {canProceed && (
                   <button
                     onClick={moveToNextQuestion}
                     style={{
