@@ -14,6 +14,28 @@ export default function Home() {
   const [inputTasks, setInputTasks] = useState<TaskInput[]>([
     { subject: "", task: "", deadline: 0, grade: 0 }
   ]);
+  const [topicWarning, setTopicWarning] = useState("");
+
+  const blockedTopicPatterns = [
+    '\\bvägivald\\b', '\\btapa\\b', '\\bsurma\\b', '\\balkohol\\b', '\\bjoob\\b', '\\bnarkoot\\b', '\\bnarko\\b', '\\buimasti\\b',
+    '\\bsigarett\\b', '\\btubakas\\b', '\\bnikotiin\\b', '\\brelv\\b', '\\bnuga\\b', '\\bpomm\\b',
+    '\\bporno\\b', '\\bseksi\\b', '\\bseks\\b', '\\bterrorism\\b', '\\bkuritegu\\b', '\\brööv\\b', '\\bvargus\\b', '\\blapseporno\\b',
+    '\\brass\\b', '\\brassism\\b', '\\bvihk\\b', '\\busk\\b', '\\bjumal\\b', '\\bsõda\\b', '\\blahing\\b'
+  ];
+
+  const containsBlockedTopic = (text: string) => {
+    const lower = text.toLowerCase();
+    return blockedTopicPatterns.some(pattern => new RegExp(pattern, 'i').test(lower));
+  };
+
+  const validateInputTasks = (tasks: TaskInput[]) => {
+    for (const task of tasks) {
+      if (containsBlockedTopic(task.subject) || containsBlockedTopic(task.task)) {
+        return 'Mõni sisestatud teema ei sobi koolitööks. Kasuta palun kooliteemadel põhinevaid aineid, näiteks matemaatikat, ajalugu, keemiat või eesti keelt.';
+      }
+    }
+    return '';
+  };
 
   const addTask = () => {
     setInputTasks([...inputTasks, { subject: "", task: "", deadline: 0, grade: 0 }]);
@@ -23,6 +45,7 @@ export default function Home() {
     const newTasks = [...inputTasks];
     newTasks[index] = { ...newTasks[index], [field]: value };
     setInputTasks(newTasks);
+    setTopicWarning(validateInputTasks(newTasks));
   };
 
   const removeTask = (index: number) => {
@@ -32,6 +55,13 @@ export default function Home() {
   };
 
   const loadAI = async () => {
+    const warning = validateInputTasks(inputTasks);
+    if (warning) {
+      setTopicWarning(warning);
+      return;
+    }
+
+    setTopicWarning("");
     const res = await fetch("/api/ai", {
       method: "POST",
       headers: {
@@ -51,6 +81,9 @@ export default function Home() {
 
         <div style={{ marginBottom: 40, backgroundColor: "#F0F8F0", padding: 25, borderRadius: 10, border: "2px solid #40E0D0" }}>
           <h2 style={{ fontSize: 24, color: "#000", marginBottom: 20 }}>📚 Sisesta ülesanded</h2>
+          <p style={{ marginTop: 0, marginBottom: 20, color: "#000", fontSize: 15, lineHeight: 1.6 }}>
+            Täida iga ülesanne korrektselt: mis aine, mis töö, mitu päeva on jäänud ja millise hinde sa selle aine eest saad.
+          </p>
 
         {inputTasks.map((task, index) => (
           <div key={index} style={{ marginBottom: 20, padding: 20, border: "2px solid #40E0D0", borderRadius: 10, backgroundColor: "#FAFFFD" }}>
@@ -80,6 +113,9 @@ export default function Home() {
                   onChange={(e) => updateTask(index, "deadline", parseInt(e.target.value) || 0)}
                   style={{ marginLeft: 8, padding: 10, width: 80, borderRadius: 6, border: "2px solid #40E0D0", backgroundColor: "white", color: "#000" }}
                 />
+                <span style={{ display: "block", marginTop: 6, fontSize: 13, color: "#333" }}>
+                  Valige, mitu päeva on jäänud kodutöö esitamise või testi ettevalmistamise lõpuni.
+                </span>
               </label>
               <label style={{ color: "#000", fontWeight: "bold" }}>
                 Hinne:
@@ -91,6 +127,9 @@ export default function Home() {
                   onChange={(e) => updateTask(index, "grade", parseInt(e.target.value) || 0)}
                   style={{ marginLeft: 8, padding: 10, width: 60, borderRadius: 6, border: "2px solid #40E0D0", backgroundColor: "white", color: "#000" }}
                 />
+                <span style={{ display: "block", marginTop: 6, fontSize: 13, color: "#333" }}>
+                  See on hinne, mida saad selle aine eest, mida valmistad ette.
+                </span>
               </label>
               {inputTasks.length > 1 && (
                 <button
@@ -112,6 +151,11 @@ export default function Home() {
         </button>
       </div>
 
+      {topicWarning && (
+        <div style={{ marginBottom: 20, padding: 18, borderRadius: 12, backgroundColor: "#FFE5E5", border: "1px solid #FFB3B3", color: "#800000" }}>
+          <strong>Hoiatus:</strong> {topicWarning}
+        </div>
+      )}
       <div style={{ textAlign: "center", marginBottom: 40 }}>
         <button
           onClick={loadAI}
@@ -183,25 +227,46 @@ export default function Home() {
               </div>
             </div>
 
-            <Link href={`/abi?subject=${encodeURIComponent(task.subject)}&task=${encodeURIComponent(task.task)}&grade=${inputTasks.find(t => t.subject === task.subject && t.task === task.task)?.grade || 3}&deadline=${inputTasks.find(t => t.subject === task.subject && t.task === task.task)?.deadline || 7}&isTest=${task.type === 'KT'}`}>
+            {containsBlockedTopic(task.subject) || containsBlockedTopic(task.task) ? (
               <button
+                disabled
                 style={{
                   marginTop: 20,
                   padding: "12px 20px",
-                  background: "linear-gradient(135deg, #2196F3 0%, #1976D2 100%)",
+                  background: "#B30000",
                   color: "white",
                   border: "none",
                   borderRadius: 10,
-                  cursor: "pointer",
+                  cursor: "not-allowed",
                   fontSize: 16,
                   fontWeight: "bold",
-                  boxShadow: "0 4px 12px rgba(33,150,243,0.3)",
-                  transition: "all 0.3s ease"
+                  boxShadow: "0 4px 12px rgba(179,0,0,0.3)",
+                  width: "100%"
                 }}
               >
-                📚 Vajad abi? 🤔
+                🚫 See teema ei sobi
               </button>
-            </Link>
+            ) : (
+              <Link href={`/abi?subject=${encodeURIComponent(task.subject)}&task=${encodeURIComponent(task.task)}&grade=${inputTasks.find(t => t.subject === task.subject && t.task === task.task)?.grade || 3}&deadline=${inputTasks.find(t => t.subject === task.subject && t.task === task.task)?.deadline || 7}&isTest=${task.type === 'KT'}`}>
+                <button
+                  style={{
+                    marginTop: 20,
+                    padding: "12px 20px",
+                    background: "linear-gradient(135deg, #2196F3 0%, #1976D2 100%)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 10,
+                    cursor: "pointer",
+                    fontSize: 16,
+                    fontWeight: "bold",
+                    boxShadow: "0 4px 12px rgba(33,150,243,0.3)",
+                    transition: "all 0.3s ease"
+                  }}
+                >
+                  📚 Vajad abi? 🤔
+                </button>
+              </Link>
+            )}
           </div>
         );
       })}

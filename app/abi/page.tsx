@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { Suspense } from "react";
 
 interface HelpContent {
   summary: string;
@@ -52,6 +51,12 @@ function AbiContent() {
   const [testCompleted, setTestCompleted] = useState(false);
   const [finalFeedback, setFinalFeedback] = useState<string>("");
   const [currentAnswer, setCurrentAnswer] = useState("");
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [canProceed, setCanProceed] = useState(false);
+  const [showHelpOverlay, setShowHelpOverlay] = useState(false);
+  const [wantsHelp, setWantsHelp] = useState(true);
+  const [showHelpPrompt, setShowHelpPrompt] = useState(false);
 
   useEffect(() => {
     if (subject && task && grade && deadline) {
@@ -76,6 +81,8 @@ function AbiContent() {
         })
       });
       const data = await res.json();
+      // Näita videot vähemalt 2 sekundit
+      await new Promise(resolve => setTimeout(resolve, 2000));
       setHelpContent(data);
     } catch (error) {
       console.error("Error loading help:", error);
@@ -90,6 +97,7 @@ function AbiContent() {
     setTestResults([]);
     setQuestionStartTime(Date.now());
     setShowHelp(false);
+    setShowHelpOverlay(false);
     setTestCompleted(false);
     setFinalFeedback("");
     setCurrentAnswer("");
@@ -134,6 +142,15 @@ function AbiContent() {
   };
 
   const answerQuestion = async (answer: string) => {
+    // Validate Estonian language for open-ended questions
+    if (helpContent!.test[currentQuestion].type === "open-ended") {
+      if (!isEstonianText(answer)) {
+        setFeedbackMessage("⚠️ Palun kirjuta vastus Eesti keeles!");
+        setShowFeedback(true);
+        return;
+      }
+    }
+
     const timeSpent = Date.now() - questionStartTime;
     const question = helpContent!.test[currentQuestion];
     let isCorrect = false;
@@ -143,18 +160,22 @@ function AbiContent() {
     if (question.type === "multiple-choice") {
       isCorrect = answer === question.correct;
       points = isCorrect ? question.points : 0;
-      feedback = isCorrect ? "✅ Õige!" : `❌ Vale. Õige vastus on: ${question.correct}. ${question.explanation}`;
+      if (isCorrect) {
+        feedback = "✅ Suurepärane! Sa oled õigel teel.";
+      } else {
+        feedback = `Proovi uuesti mõelda. Kuidas seostub see teema põhikontseptsioonidega? Milliseid aspekte võiksid kaaluda?`;
+      }
     } else {
       const evaluation = await evaluateOpenEndedAnswer(answer, question.sampleAnswer || "", question.question);
       isCorrect = evaluation.correct;
       points = evaluation.points;
       
       if (evaluation.correct) {
-        feedback = "✅ Õige! Vastus on täielikult õige.";
+        feedback = "✅ Suurepärane! Vastus on täielikult õige.";
       } else if (evaluation.partiallyCorrect) {
-        feedback = `⚠️ Osaliselt õige - ${evaluation.feedback}`;
+        feedback = `Hea algus! ${evaluation.feedback}`;
       } else {
-        feedback = `❌ Vale - ${evaluation.feedback}`;
+        feedback = `Proovi uuesti. ${evaluation.feedback}`;
       }
     }
 
@@ -173,35 +194,83 @@ function AbiContent() {
     newAnswers[currentQuestion] = answer;
     setAnswers(newAnswers);
 
+    // Show feedback and wait for user to click "Liigume edasi"
+    setFeedbackMessage(feedback);
+    setShowFeedback(true);
+    setCanProceed(true);
+
     if (!isCorrect) {
-      const timeout = setTimeout(() => {
-        setShowHelp(true);
-      }, 5000);
-      setHelpTimeout(timeout);
+      if (wantsHelp) {
+        setShowHelpPrompt(true);
+      }
     } else {
       setShowHelp(false);
+      setShowHelpOverlay(false);
+      setShowHelpPrompt(false);
       if (helpTimeout) clearTimeout(helpTimeout);
-    }
-
-    if (currentQuestion < helpContent!.test.length - 1) {
-      setTimeout(() => {
-        setCurrentQuestion(currentQuestion + 1);
-        setQuestionStartTime(Date.now());
-        setShowHelp(false);
-        setCurrentAnswer("");
-        if (helpTimeout) clearTimeout(helpTimeout);
-      }, isCorrect ? 2000 : 4000);
-    } else {
-      setTimeout(() => {
-        setTestCompleted(true);
-        generateFinalFeedback();
-      }, isCorrect ? 2000 : 4000);
     }
   };
 
   const acceptHelp = () => {
     setShowHelp(false);
+    setShowHelpOverlay(false);
     if (helpTimeout) clearTimeout(helpTimeout);
+  };
+
+  // Estonian language validation
+  const isEstonianText = (text: string): boolean => {
+    const estonianPattern = /[äöüõÄÖÜÕ]/;
+    const latinPattern = /[a-zA-Z]/;
+    const commonEstonianWords = ['ja', 'et', 'on', 'ta', 'see', 'kus', 'mis', 'kui', 'siis', 'nagu', 'pole', 'ei', 'jah', 'teeb', 'saab', 'olema', 'tuleb', 'või', 'õpi', 'kuidas', 'miks', 'kes', 'kelle', 'mida', 'kuhu'];
+
+    const hasEstonianChars = estonianPattern.test(text);
+    const hasLatinChars = latinPattern.test(text);
+    if (!hasLatinChars) return false;
+
+    const words = text.toLowerCase().split(/\s+/).map(w => w.replace(/[.,!?;:()\[\]"']/g, ''));
+    const estonianWordCount = words.filter(w => commonEstonianWords.includes(w)).length;
+
+    return hasEstonianChars || estonianWordCount >= 2 || text.length < 35;
+  };
+
+  // Content moderation
+  const checkContentModeration = (text: string): { allowed: boolean; reason?: string } => {
+    const bannedPatterns = [
+      '\\bvägivald\\b', '\\btapa\\b', '\\bsurma\\b', '\\balkohol\\b', '\\bjoob\\b', '\\bnarkoot\\b', '\\bnarko\\b', '\\buimasti\\b',
+      '\\bsigarett\\b', '\\btubakas\\b', '\\bnikotiin\\b', '\\brelv\\b', '\\bnuga\\b', '\\bpomm\\b',
+      '\\bporno\\b', '\\bseksi\\b', '\\bseks\\b', '\\bterrorism\\b', '\\bkuritegu\\b', '\\brööv\\b', '\\bvargus\\b', '\\blapseporno\\b',
+      '\\brennen\\b', '\\brass\\b', '\\brassism\\b', '\\bvihk\\b', '\\busk\\b', '\\bjumal\\b', '\\bsõda\\b', '\\blahing\\b'
+    ];
+
+    const lowerText = text.toLowerCase();
+    for (const pattern of bannedPatterns) {
+      if (new RegExp(pattern, 'i').test(lowerText)) {
+        return {
+          allowed: false,
+          reason: '❌ See teema ei sobi koolitööks. Palun vali kooliteema, näiteks matemaatika, ajalugu, keemia või eesti keel.'
+        };
+      }
+    }
+
+    return { allowed: true };
+  };
+
+  const moveToNextQuestion = () => {
+    setShowFeedback(false);
+    setCanProceed(false);
+    setFeedbackMessage("");
+    
+    if (currentQuestion < helpContent!.test.length - 1) {
+      setCurrentQuestion(currentQuestion + 1);
+      setQuestionStartTime(Date.now());
+      setShowHelp(false);
+      setShowHelpOverlay(false);
+      setCurrentAnswer("");
+      if (helpTimeout) clearTimeout(helpTimeout);
+    } else {
+      setTestCompleted(true);
+      generateFinalFeedback();
+    }
   };
 
   const generateFinalFeedback = async () => {
@@ -255,8 +324,34 @@ ${percentage >= 80 ? 'Väga hea töö! Sa oled seda teemat hästi omandanud.' :
 
   if (loading) {
     return (
-      <main style={{ padding: 20 }}>
-        <h1>Laen abi...</h1>
+      <main style={{ 
+        padding: 30, 
+        minHeight: "100vh", 
+        color: "#fff", 
+        display: "flex", 
+        alignItems: "center", 
+        justifyContent: "center",
+        flexDirection: "column",
+        gap: 18,
+        background: "radial-gradient(circle at top, #E5F7FF 0%, #D7EEFF 45%, #B7DDF8 100%)"
+      }}>
+        <div style={{ width: "100%", maxWidth: 1080, borderRadius: 28, overflow: "hidden", boxShadow: "0 24px 60px rgba(0,0,0,0.18)", backgroundColor: "#fff", border: "1px solid rgba(0,0,0,0.08)" }}>
+          <video
+            autoPlay
+            muted
+            playsInline
+            loop
+            style={{
+              width: "100%",
+              height: "90vh",
+              display: "block",
+              objectFit: "cover"
+            }}
+          >
+            <source src="/videos/grok-video-7fb95891-d1b2-48f5-b6fd-abf5e25e533f.mp4" type="video/mp4" />
+          </video>
+        </div>
+        <p style={{ margin: 0, color: "#0d3679", fontSize: 24, fontWeight: 700, textShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>Laen abi...</p>
       </main>
     );
   }
@@ -343,6 +438,43 @@ ${percentage >= 80 ? 'Väga hea töö! Sa oled seda teemat hästi omandanud.' :
 
       {!showTest ? (
         <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={{ marginBottom: 25, padding: 20, borderRadius: 12, backgroundColor: "#F0F8F0", border: "2px solid #40E0D0" }}>
+            <p style={{ margin: "0 0 15px 0", color: "#000", fontSize: 18, fontWeight: 600 }}>Kas soovid testi ajal abiakent kasutada?</p>
+            <div style={{ display: "flex", gap: 15, justifyContent: "center" }}>
+              <button
+                onClick={() => setWantsHelp(true)}
+                style={{
+                  padding: "12px 24px",
+                  background: wantsHelp ? "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)" : "#E0E0E0",
+                  color: wantsHelp ? "white" : "#000",
+                  border: "none",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  fontSize: 16,
+                  fontWeight: "bold",
+                  boxShadow: wantsHelp ? "0 4px 12px rgba(76,175,80,0.3)" : "none"
+                }}
+              >
+                ✅ Jah, aitab
+              </button>
+              <button
+                onClick={() => setWantsHelp(false)}
+                style={{
+                  padding: "12px 24px",
+                  background: !wantsHelp ? "linear-gradient(135deg, #DC3545 0%, #C82333 100%)" : "#E0E0E0",
+                  color: !wantsHelp ? "white" : "#000",
+                  border: "none",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  fontSize: 16,
+                  fontWeight: "bold",
+                  boxShadow: !wantsHelp ? "0 4px 12px rgba(220,53,69,0.3)" : "none"
+                }}
+              >
+                ❌ Ei, ise
+              </button>
+            </div>
+          </div>
           <button
             onClick={startTest}
             style={{
@@ -534,10 +666,41 @@ ${percentage >= 80 ? 'Väga hea töö! Sa oled seda teemat hästi omandanud.' :
                 <p style={{ fontSize: 14, color: "#000", marginTop: 10 }}>
                   Punktid: {testResults[currentQuestion].points} / {helpContent.test[currentQuestion].points}
                 </p>
+                
+                {canProceed && (
+                  <button
+                    onClick={moveToNextQuestion}
+                    style={{
+                      marginTop: 20,
+                      background: "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)",
+                      color: "white",
+                      padding: "15px 30px",
+                      border: "none",
+                      borderRadius: 10,
+                      cursor: "pointer",
+                      fontSize: 18,
+                      fontWeight: "bold",
+                      boxShadow: "0 6px 16px rgba(76,175,80,0.4)",
+                      width: "100%",
+                      transition: "all 0.3s ease",
+                      textAlign: "center"
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.target as HTMLButtonElement).style.background = "linear-gradient(135deg, #45a049 0%, #3d8b40 100%)";
+                      (e.target as HTMLButtonElement).style.transform = "translateY(-2px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.target as HTMLButtonElement).style.background = "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)";
+                      (e.target as HTMLButtonElement).style.transform = "translateY(0)";
+                    }}
+                  >
+                    ➡️ Liigume edasi →
+                  </button>
+                )}
               </div>
             )}
 
-            {showHelp && (
+            {showFeedback && !testResults[currentQuestion] && (
               <div style={{
                 marginTop: 25,
                 padding: 20,
@@ -546,28 +709,149 @@ ${percentage >= 80 ? 'Väga hea töö! Sa oled seda teemat hästi omandanud.' :
                 border: "3px solid #2196F3",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
               }}>
-                <p style={{ fontWeight: "bold", color: "#000", fontSize: 18, marginBottom: 10 }}>💡 Vajad abi?</p>
-                <p style={{ color: "#000", marginBottom: 15 }}>Siin on mõned näpunäited, mis aitavad sul vastata:</p>
-                <p style={{ fontSize: 15, color: "#000", lineHeight: 1.6, fontStyle: "italic" }}>
-                  {helpContent.test[currentQuestion].sampleAnswer}
+                <p style={{
+                  fontWeight: "bold",
+                  color: "#1565C0",
+                  fontSize: 16,
+                  marginBottom: 10
+                }}>
+                  Tagasiside:
                 </p>
-                <div style={{ display: "flex", gap: 12, marginTop: 15 }}>
+                <p style={{ color: "#000", lineHeight: 1.6, fontSize: 16 }}>{feedbackMessage}</p>
+                
+                {canProceed && showHelpPrompt && wantsHelp && (
                   <button
-                    onClick={acceptHelp}
+                    onClick={() => setShowHelpOverlay(true)}
                     style={{
+                      marginTop: 15,
+                      marginBottom: 12,
                       background: "linear-gradient(135deg, #2196F3 0%, #1976D2 100%)",
                       color: "white",
-                      padding: "12px 20px",
+                      padding: "12px 22px",
                       border: "none",
                       borderRadius: 10,
                       cursor: "pointer",
                       fontSize: 16,
                       fontWeight: "bold",
-                      boxShadow: "0 4px 12px rgba(33,150,243,0.3)"
+                      boxShadow: "0 4px 12px rgba(33,150,243,0.3)",
+                      display: "block",
+                      marginLeft: "auto",
+                      marginRight: "auto"
                     }}
                   >
-                    Aitäh, proovin ise
+                    🔑 Abiaken
                   </button>
+                )}
+                console.log(canProceed)
+                {canProceed === true &&(
+                  <button
+                    onClick={moveToNextQuestion}
+                    style={{
+                      marginTop: 20,
+                      background: "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)",
+                      color: "white",
+                      padding: "15px 30px",
+                      border: "none",
+                      borderRadius: 10,
+                      cursor: "pointer",
+                      fontSize: 18,
+                      fontWeight: "bold",
+                      boxShadow: "0 6px 16px rgba(76,175,80,0.4)",
+                      width: "100%",
+                      transition: "all 0.3s ease",
+                      textAlign: "center"
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.target as HTMLButtonElement).style.background = "linear-gradient(135deg, #45a049 0%, #3d8b40 100%)";
+                      (e.target as HTMLButtonElement).style.transform = "translateY(-2px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.target as HTMLButtonElement).style.background = "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)";
+                      (e.target as HTMLButtonElement).style.transform = "translateY(0)";
+                    }}
+                  >
+                    ➡️ Liigume edasi →
+                  </button>
+                )}
+              </div>
+            )}
+
+            {showHelpOverlay && (
+              <div style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 9999,
+                backgroundColor: "rgba(0, 0, 0, 0.92)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 20
+              }}>
+                <div style={{
+                  width: "100%",
+                  maxWidth: 1000,
+                  maxHeight: "95vh",
+                  overflowY: "auto",
+                  borderRadius: 24,
+                  backgroundColor: "#fff",
+                  boxShadow: "0 30px 60px rgba(0,0,0,0.45)",
+                  position: "relative"
+                }}>
+                  <div style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: 24,
+                    borderBottom: "1px solid #E0E0E0"
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                      <span style={{ fontSize: 42 }}>🦆</span>
+                      <div>
+                        <p style={{ margin: 0, fontSize: 24, fontWeight: 700, color: "#111" }}>Abiaken</p>
+                        <p style={{ margin: 4, color: "#555", fontSize: 15 }}>Siin näed abi ja võid seejärel edasi liikuda.</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={acceptHelp}
+                      style={{
+                        background: "linear-gradient(135deg, #2196F3 0%, #1976D2 100%)",
+                        color: "white",
+                        padding: "12px 22px",
+                        border: "none",
+                        borderRadius: 12,
+                        cursor: "pointer",
+                        fontSize: 16,
+                        fontWeight: "bold",
+                        boxShadow: "0 4px 12px rgba(33,150,243,0.25)"
+                      }}
+                    >
+                      Sulge abi
+                    </button>
+                  </div>
+
+                  <div style={{ padding: 24, display: "grid", gap: 24 }}>
+                    <div style={{ borderRadius: 18, overflow: "hidden", backgroundColor: "#000" }}>
+                      <video
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        style={{ width: "100%", display: "block" }}
+                      >
+                        <source src="/videos/grok-video-6d7961a6-907d-47a7-bc67-6bf9b12c8494.mp4" type="video/mp4" />
+                      </video>
+                    </div>
+
+                    <div style={{ padding: 22, borderRadius: 18, backgroundColor: "#F5F9FF", border: "1px solid #D3E3FF" }}>
+                      <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#111", marginBottom: 14 }}>💡 Mõtle nii:</p>
+                      <p style={{ margin: 0, lineHeight: 1.8, color: "#222", fontSize: 16 }}>
+                        {helpContent.test[currentQuestion].sampleAnswer}
+                      </p>
+                      <p style={{ marginTop: 16, color: "#555", fontSize: 14 }}>
+                        See abi on mõeldud mõtteviisi avamiseks, mitte otse lahenduse andmiseks.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -597,9 +881,5 @@ ${percentage >= 80 ? 'Väga hea töö! Sa oled seda teemat hästi omandanud.' :
   );
 }
 export default function Abi() {
-  return (
-    <Suspense fallback={<div>Laeb...</div>}>
-      <AbiContent />
-    </Suspense>
-  );
+  return <AbiContent />;
 }

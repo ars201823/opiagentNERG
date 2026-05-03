@@ -1,7 +1,30 @@
 import { NextResponse } from "next/server";
 
+// Content moderation helper
+function checkContentForBannedTopics(text: string): boolean {
+  const bannedTopics = [
+    'vägivalts', 'vägivald', 'löö', 'tapa', 'surma', 'marustus',
+    'alkohol', 'joob', 'viina', 'õlu', 'purju',
+    'narkoot', 'narko', 'uimasti',
+    'sigarett', 'tupak', 'tubakas', 'nikotiin',
+    'relv', 'revolver', 'pürss', 'nuga', 'granaat', 'pomm',
+    'porno', 'porn', 'seksi', 'seks', 'pornograafia',
+    'vihkus', 'rass', 'rassism', 'rassistlik',
+    'terrorism', 'terroristlik',
+    'kuritegu', 'röövimine', 'vargus', 'petsus',
+    'lapseporno', 'child porn',
+    'solvang', 'sõim', 'insulting',
+    'jumal', 'jumala', 'usk', 'ateism',
+    'sõda', 'sõjas', 'lahingu', 'invasioon'
+  ];
+
+  const lowerText = text.toLowerCase();
+  return bannedTopics.some(topic => lowerText.includes(topic));
+}
+
 export async function POST(request: Request) {
   const { subject, task, grade, deadline, isTest } = await request.json();
+
 
   const prompt = `
 You are ÕpiAgent, an AI learning assistant for Estonian students.
@@ -38,9 +61,11 @@ REQUIREMENTS:
 - Each question should require the student to explain their understanding
 - Questions should be progressive: start with basic concepts, move to more complex applications
 - Include some multiple-choice review questions (2-3) mixed in
-- For open-ended questions, provide sample good answers for evaluation
+- For open-ended questions, provide sample answers that describe KEY ASPECTS to look for, not the exact answer
+- Sample answers should focus on evaluation criteria, not reveal the correct answer
 - Questions must be specifically about this topic
 - Make questions engaging and thought-provoking
+- Questions should guide students to think deeper, not just recall facts
 
 5. TIME CALCULATION:
 - Calculate recommended study time based on:
@@ -100,6 +125,7 @@ IMPORTANT:
   const data = await res.json();
   const text = data.choices[0].message.content;
   const cleaned = text.replace(/```json|```/g, "").trim();
+  const parsed = JSON.parse(cleaned);
 
-  return NextResponse.json(JSON.parse(cleaned));
+  return NextResponse.json(parsed);
 }

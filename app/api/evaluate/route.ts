@@ -3,19 +3,31 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   const { answer, sampleAnswer, question } = await request.json();
 
-  const prompt = `Evaluate this student's answer. Be flexible and understanding.
+  const prompt = `You are an Estonian language learning tutor. Evaluate this student's answer carefully.
 
 Question: ${question}
 Sample correct answer: ${sampleAnswer}
 Student's answer: ${answer}
 
 Rate the answer as CORRECT, PARTIALLY_CORRECT, or INCORRECT.
-Provide clear feedback that explains what's good about the answer and what could be improved.
+Provide guiding feedback that helps the student think deeper WITHOUT revealing the complete answer.
 
-Respond in JSON format:
+IMPORTANT RULES:
+1. NEVER say "You forgot X" or "The answer should include Y"
+2. NEVER reveal what the correct answer is
+3. Instead, guide them with reflective questions like:
+   - "Mõtle, kas..." (Think, whether...)
+   - "Kuidas seostub see..." (How does this relate to...)
+   - "Mis on oluline aspekt, mida võiksid kaaluda?" (What is an important aspect to consider?)
+   - "Kellele või millele võiksid tähelepanu pöörata?" (Who or what should you focus on?)
+4. If answer is wrong, rephrase the original question slightly to guide them better
+5. Keep feedback short (1-2 sentences maximum)
+6. Be encouraging but honest
+
+Respond in ESTONIAN in JSON format:
 {
   "rating": "CORRECT|PARTIALLY_CORRECT|INCORRECT",
-  "feedback": "Detailed feedback here (2-3 sentences)"
+  "feedback": "Guiding feedback here (1-2 sentences, in Estonian, NO hints about the answer)"
 }`;
 
   try {
@@ -42,10 +54,10 @@ Respond in JSON format:
       points: parsed.rating === "CORRECT" ? 5 : parsed.rating === "PARTIALLY_CORRECT" ? 3 : 0
     });
   } catch (error) {
-    // Fallback response
+    // Fallback response in Estonian, guiding
     return NextResponse.json({
       rating: "PARTIALLY_CORRECT",
-      feedback: "Vastus on hea algus! Mõned detailid võiksid olla täpsemad või põhjalikumad. Proovi lisada rohkem seletusi.",
+      feedback: "Hea katsetus! Mõtle, mis on selle küsimuse juures kõige oluline? Milliseid aspekte peaks arvestama?",
       points: 3
     });
   }
