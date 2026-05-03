@@ -1,5 +1,4 @@
 ﻿"use client";
-export const dynamic = "force-dynamic";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
@@ -35,8 +34,8 @@ function AbiContent() {
   const params = useSearchParams();
   const subject = params.get("subject");
   const task = params.get("task");
-  const grade = params.get("grade");
-  const deadline = params.get("deadline");
+ const grade = Number(params.get("grade") ?? "3");
+ const deadline = Number(params.get("deadline") ?? "7");
   const isTest = params.get("isTest") === "true";
 
   const [helpContent, setHelpContent] = useState<HelpContent | null>(null);
@@ -74,12 +73,12 @@ function AbiContent() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          subject,
-          task,
-          grade: parseInt(grade!),
-          deadline: parseInt(deadline!),
-          isTest
-        })
+  subject,
+  task,
+  grade: Number(grade ?? "3"),
+  deadline: Number(deadline ?? "7"),
+  isTest
+})
       });
       const data = await res.json();
       // Näita videot vähemalt 2 sekundit
