@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { Suspense } from "react";
 
 interface HelpContent {
   summary: string;
@@ -882,5 +883,9 @@ ${percentage >= 80 ? 'Väga hea töö! Sa oled seda teemat hästi omandanud.' :
   );
 }
 export default function Abi() {
-  return <AbiContent />;
+  return (
+    <Suspense fallback={null}>
+      <AbiContent />
+    </Suspense>
+  );
 }
