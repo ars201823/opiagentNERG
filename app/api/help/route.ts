@@ -1,131 +1,104 @@
 import { NextResponse } from "next/server";
 
-// Content moderation helper
-function checkContentForBannedTopics(text: string): boolean {
-  const bannedTopics = [
-    'vägivalts', 'vägivald', 'löö', 'tapa', 'surma', 'marustus',
-    'alkohol', 'joob', 'viina', 'õlu', 'purju',
-    'narkoot', 'narko', 'uimasti',
-    'sigarett', 'tupak', 'tubakas', 'nikotiin',
-    'relv', 'revolver', 'pürss', 'nuga', 'granaat', 'pomm',
-    'porno', 'porn', 'seksi', 'seks', 'pornograafia',
-    'vihkus', 'rass', 'rassism', 'rassistlik',
-    'terrorism', 'terroristlik',
-    'kuritegu', 'röövimine', 'vargus', 'petsus',
-    'lapseporno', 'child porn',
-    'solvang', 'sõim', 'insulting',
-    'jumal', 'jumala', 'usk', 'ateism',
-    'sõda', 'sõjas', 'lahingu', 'invasioon'
-  ];
-
-  const lowerText = text.toLowerCase();
-  return bannedTopics.some(topic => lowerText.includes(topic));
-}
-
 export async function POST(request: Request) {
-  const { subject, task, grade, deadline, isTest } = await request.json();
+  try {
+    const { subject, task, grade, isTest } = await request.json();
 
+    const prompt = `
+      You are "Nutikas Sõber" (Smart Friend), a chill but very smart AI tutor for Estonian Gymnasium students (grades 10-12).
+      Õpilane hindas oma enesetunnet/teadmisi sellel teemal hinde 5 palli süsteemis: ${grade}/5.
+  (1 = ei tea mitte midagi, 5 = tunnen end väga kindlalt).
 
-  const prompt = `
-You are ÕpiAgent, an AI learning assistant for Estonian students.
+  ARVUTA ETTEVALMISTUSAEG (recommendedTime):
+  - Kui enesetunne on 1-2: Teema on raske, arvuta aega varuga (umbes 60 min), et jõuaks süvitsi minna.
+  - Kui enesetunne on 3: Keskmine, arvuta u 45 min.
+  - Kui enesetunne on 4-5: Õpilane on tubli, talle piisab kiirest kordamisest (25-30 min).
+  
+  Mõjuta selle numbriga ka KONSPEKTI:
+  - Kui enesetunne on madal (1-2), seleta asju veelgi lihtsamalt ja põhjalikumalt.
+  - Kui enesetunne on kõrge (4-5), keskendu rohkem peamistele punktidele ja ära raiska aega liiga lihtsatele seletustele. 
+      
+      TASK: Explain complex Gymnasium topics (RÕK standard) in a way a friend would explain to another friend. 
+      STYLE: Use natural, friendly, and simple Estonian. No dry academic jargon. Use metaphors and relatable examples. 
+      Imagine you are helping your buddy pass the state exam (riigieksam) without them falling asleep.
 
-TASK: Create educational help content for a student who needs assistance with an assignment.
+      REQUIREMENTS:
 
-INPUT DATA:
-- Subject: ${subject}
-- Task: ${task}
-- Current grade in subject: ${grade}/5
-- Days until deadline: ${deadline}
-- Is this a test preparation: ${isTest ? 'Yes' : 'No'}
+      1. SUMMARY (KONSPEKT):
+      - Topic: ${subject} (${task})
+      - Write it like a "TL;DR" or a message to a friend. 
+      - Use headings, bullet points, and emojis to keep it readable.
+      - Explain the COMPLICATED stuff using SIMPLE words. 
+      - If there are big terms, explain them with real-life examples.
 
-REQUIREMENTS:
+      2. CONCLUSION (KOKKUVÕTE):
+      - Ask the student to wrap it up in their own words. 
+      - Prompt: "Pane nüüd kirja, kuidas sa sellest asjast oma sõnadega aru said (see aitab päriselt meelde jätta!):"
 
-1. SUMMARY (KONSPEKT):
-- Write a clear, beginner-friendly explanation
-- Use simple Estonian language
-- Explain concepts as if student sees this for the first time
-- Keep it concise but comprehensive
-- Use bullet points or numbered lists where appropriate
+      3. REVIEW QUESTIONS:
+      - 2-3 chill questions to see if they got the main "vibe" of the topic.
 
-2. CONCLUSION OFFER (KOKKUVÕTE):
-- At the end of summary, offer: "Kirjuta oma kokkuvõte siia teemale (valikuline):"
-- Include a text area for student input
+      4. TEST (10 QUESTIONS):
+      - Exactly 10 questions. 
+      - Mix of multiple-choice (with letters A, B, C, D) and open-ended.
+      - The questions should be about understanding the logic, not just memorizing dates.
+      - For open-ended: "sampleAnswer" should be what a "smart friend" would answer.
 
-3. REVIEW QUESTIONS (KORDAMISKÜSIMUSED):
-- Create exactly 2-3 questions (no more)
-- Questions should test understanding of the key concepts
-- Make them thought-provoking but not too difficult
+      5. TIME:
+      - Estimate how long it takes to "get it" (usually 30-50 min for gymnasium topics).
 
-4. TEST (TEST):
-- Create a test with exactly 10 open-ended questions
-- Each question should require the student to explain their understanding
-- Questions should be progressive: start with basic concepts, move to more complex applications
-- Include some multiple-choice review questions (2-3) mixed in
-- For open-ended questions, provide sample answers that describe KEY ASPECTS to look for, not the exact answer
-- Sample answers should focus on evaluation criteria, not reveal the correct answer
-- Questions must be specifically about this topic
-- Make questions engaging and thought-provoking
-- Questions should guide students to think deeper, not just recall facts
+      IMPORTANT:
+      - Language: ESTONIAN.
+      - Tone: Encouraging, relatable, smart but NOT arrogant. 
+      - Format: Return ONLY valid JSON.
 
-5. TIME CALCULATION:
-- Calculate recommended study time based on:
-  - Grade: lower grade = more time (+5-10 min)
-  - Deadline: closer deadline = more time
-  - Test vs homework: tests get more time
-- Return time in minutes
+      JSON STRUCTURE:
+      {
+        "summary": "Siin on teema seletus nagu sõbrale...",
+        "conclusionPrompt": "Pane kirja oma mõtted...",
+        "reviewQuestions": ["Küsimus 1?", "Küsimus 2?"],
+        "test": [
+          {
+            "question": "Okei, aga kui see oleks päriselus, siis...",
+            "type": "multiple-choice",
+            "options": ["A) Variant", "B) Variant", "C) Variant", "D) Variant"],
+            "correct": "A",
+            "explanation": "Tšeki seda: see on õige sellepärast, et...",
+            "points": 3
+          },
+          {
+            "question": "Seleta lühidalt: mis teema sellega siis ikkagi on?",
+            "type": "open-ended",
+            "sampleAnswer": "Sinu vastuses võiks kirjas olla, et...",
+            "points": 5
+          }
+        ],
+        "recommendedTime": 40
+      }
+    `;
 
-OUTPUT FORMAT (JSON only):
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-4o", // gpt-4o лучше понимает "дружеский тон" на эстонском
+        messages: [
+          { role: "system", content: "Sa oled abivalmis ja nutikas gümnaasiumiõpilase sõber. Suhtled vabas vormis, aga õpetad targalt." },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" }
+      })
+    });
 
-{
-  "summary": "Clear explanation text...",
-  "conclusionPrompt": "Kirjuta oma kokkuvõte...",
-  "reviewQuestions": [
-    "Question 1?",
-    "Question 2?",
-    "Question 3?"
-  ],
-  "test": [
-    {
-      "question": "Explain in your own words: What is the main concept here?",
-      "type": "open-ended",
-      "sampleAnswer": "A good answer should include... (this is for AI evaluation)",
-      "points": 5
-    },
-    {
-      "question": "Multiple choice: What is the correct answer?",
-      "type": "multiple-choice",
-      "options": ["A) Option 1", "B) Option 2", "C) Option 3", "D) Option 4"],
-      "correct": "A",
-      "explanation": "Why this is correct...",
-      "points": 3
-    }
-  ],
-  "recommendedTime": 25
-}
+    const data = await res.json();
+    const parsed = JSON.parse(data.choices[0].message.content);
 
-IMPORTANT:
-- Respond in ESTONIAN language
-- Make content educational and encouraging
-- Adapt difficulty based on grade (lower grade = simpler explanations)
-- Return ONLY JSON, no additional text
-`;
-
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }]
-    })
-  });
-
-  const data = await res.json();
-  const text = data.choices[0].message.content;
-  const cleaned = text.replace(/```json|```/g, "").trim();
-  const parsed = JSON.parse(cleaned);
-
-  return NextResponse.json(parsed);
+    return NextResponse.json(parsed);
+  } catch (error) {
+    console.error("Viga:", error);
+    return NextResponse.json({ error: "Midagi läks nihu" }, { status: 500 });
+  }
 }
