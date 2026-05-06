@@ -1,4 +1,4 @@
-﻿﻿"use client";
+﻿"use client";
 export const dynamic = "force-dynamic";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -190,7 +190,10 @@ function AbiContent() {
       feedback
     };
 
-    setTestResults([...testResults, result]);
+    const newResults = [...testResults];
+    newResults[currentQuestion] = result;
+    setTestResults(newResults);
+
     const newAnswers = [...answers];
     newAnswers[currentQuestion] = answer;
     setAnswers(newAnswers);
@@ -238,7 +241,7 @@ function AbiContent() {
   const checkContentModeration = (text: string): { allowed: boolean; reason?: string } => {
     const bannedPatterns = [
       '\\bvägivald\\b', '\\btapa\\b', '\\bsurma\\b', '\\balkohol\\b', '\\bjoob\\b', '\\bnarkoot\\b', '\\bnarko\\b', '\\buimasti\\b',
-      '\\bsigarett\\b', '\\btubakas\\b', '\\bnikotiin\\b', '\\brelv\\b', '\\bnuga\\b', '\\bpomm\\b',
+      '\\bsigarett\\b', '\\btubakas\\b', '\\bnikotiin\\b', '\\brelw\\b', '\\bnuga\\b', '\\bpomm\\b',
       '\\bporno\\b', '\\bseksi\\b', '\\bseks\\b', '\\bterrorism\\b', '\\bkuritegu\\b', '\\brööv\\b', '\\bvargus\\b', '\\blapseporno\\b',
       '\\brennen\\b', '\\brass\\b', '\\brassism\\b', '\\bvihk\\b', '\\busk\\b', '\\bjumal\\b', '\\bsõda\\b', '\\blahing\\b'
     ];
@@ -276,11 +279,11 @@ function AbiContent() {
   };
 
   const generateFinalFeedback = async () => {
-    const totalPoints = testResults.reduce((sum, result) => sum + result.points, 0);
+    const totalPoints = testResults.reduce((sum, result) => sum + (result?.points || 0), 0);
     const maxPoints = helpContent!.test.reduce((sum, question) => sum + question.points, 0);
     const percentage = Math.round((totalPoints / maxPoints) * 100);
 
-    const correctCount = testResults.filter(r => r.correct).length;
+    const correctCount = testResults.filter(r => r?.correct).length;
     const incorrectCount = testResults.length - correctCount;
 
     const strengths: string[] = [];
@@ -288,6 +291,7 @@ function AbiContent() {
     const reviewTopics: string[] = [];
 
     testResults.forEach((result, index) => {
+      if (!result) return;
       const question = helpContent!.test[index];
       if (result.correct) {
         strengths.push(`Küsimus ${index + 1}: ${question.question.substring(0, 50)}...`);
@@ -310,13 +314,13 @@ ${weaknesses.length > 0 ? weaknesses.map(w => `❌ ${w}`).join('\n') : 'Suurepä
 
 ### Soovitused edasiseks:
 ${reviewTopics.length > 0 ?
-  `Vaata üle järgmised teemad:\n${reviewTopics.map(t => `• ${t}`).join('\n')}` :
-  'Sa oled valmis! Kõik teemad on hästi omandatud.'}
+      `Vaata üle järgmised teemad:\n${reviewTopics.map(t => `• ${t}`).join('\n')}` :
+      'Sa oled valmis! Kõik teemad on hästi omandatud.'}
 
 ### Üldine tagasiside:
 ${percentage >= 80 ? 'Väga hea töö! Sa oled seda teemat hästi omandanud.' :
- percentage >= 60 ? 'Hea algus! Mõned teemad vajavad veel harjutamist.' :
- 'Ära heida meelt! Proovi veel kord ja keskendu raskematele teemadele.'}
+  percentage >= 60 ? 'Hea algus! Mõned teemad vajavad veel harjutamist.' :
+  'Ära heida meelt! Proovi veel kord ja keskendu raskematele teemadele.'}
 
 **Kui vajad lisabi, kliki "Vajad abi?" nuppu!**
     `.trim();
@@ -393,7 +397,7 @@ ${percentage >= 80 ? 'Väga hea töö! Sa oled seda teemat hästi omandanud.' :
           </div>
         </div>
 
-<div style={{ marginBottom: 40, backgroundColor: "#F0F8F0", padding: 25, borderRadius: 12, border: "2px solid #40E0D0" }}>
+        <div style={{ marginBottom: 40, backgroundColor: "#F0F8F0", padding: 25, borderRadius: 12, border: "2px solid #40E0D0" }}>
           <h2 style={{ fontSize: 24, color: "#000", marginBottom: 20 }}>✍️ {helpContent.conclusionPrompt}</h2>
           <textarea
             value={conclusion}
@@ -432,456 +436,429 @@ ${percentage >= 80 ? 'Väga hea töö! Sa oled seda teemat hästi omandanud.' :
                   backgroundColor: "white",
                   color: "#000",
                   resize: "vertical"
-              }}
-            />
-          </div>
-        ))}
-      </div>
-
-      {!showTest ? (
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <div style={{ marginBottom: 25, padding: 20, borderRadius: 12, backgroundColor: "#F0F8F0", border: "2px solid #40E0D0" }}>
-            <p style={{ margin: "0 0 15px 0", color: "#000", fontSize: 18, fontWeight: 600 }}>Kas soovid testi ajal abiakent kasutada?</p>
-            <div style={{ display: "flex", gap: 15, justifyContent: "center" }}>
-              <button
-                onClick={() => setWantsHelp(true)}
-                style={{
-                  padding: "12px 24px",
-                  background: wantsHelp ? "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)" : "#E0E0E0",
-                  color: wantsHelp ? "white" : "#000",
-                  border: "none",
-                  borderRadius: 10,
-                  cursor: "pointer",
-                  fontSize: 16,
-                  fontWeight: "bold",
-                  boxShadow: wantsHelp ? "0 4px 12px rgba(76,175,80,0.3)" : "none"
                 }}
-              >
-                ✅ Jah, aitab
-              </button>
-              <button
-                onClick={() => setWantsHelp(false)}
-                style={{
-                  padding: "12px 24px",
-                  background: !wantsHelp ? "linear-gradient(135deg, #DC3545 0%, #C82333 100%)" : "#E0E0E0",
-                  color: !wantsHelp ? "white" : "#000",
-                  border: "none",
-                  borderRadius: 10,
-                  cursor: "pointer",
-                  fontSize: 16,
-                  fontWeight: "bold",
-                  boxShadow: !wantsHelp ? "0 4px 12px rgba(220,53,69,0.3)" : "none"
-                }}
-              >
-                ❌ Ei, ise
-              </button>
+              />
             </div>
-          </div>
-          <button
-            onClick={startTest}
-            style={{
-              background: "linear-gradient(135deg, #FF9800 0%, #F57C00 100%)",
-              color: "white",
-              padding: "18px 35px",
-              border: "none",
-              borderRadius: 15,
-              fontSize: 20,
-              fontWeight: "bold",
-              cursor: "pointer",
-              boxShadow: "0 6px 20px rgba(255,152,0,0.3)",
-              transition: "all 0.3s ease"
-            }}
-          >
-            🚀 Alusta testi (10 küsimust)
-          </button>
+          ))}
         </div>
-      ) : testCompleted ? (
-        <div style={{ marginBottom: 40, backgroundColor: "#F0F8F0", padding: 30, borderRadius: 15, border: "3px solid #40E0D0" }}>
-          <h2 style={{ fontSize: 28, color: "#000", textAlign: "center", marginBottom: 20 }}>🎉 Test lõpetatud!</h2>
-          <div style={{
-            padding: 25,
-            backgroundColor: "#FAFFFD",
-            borderRadius: 12,
-            border: "2px solid #40E0D0",
-            whiteSpace: "pre-line",
-            lineHeight: 1.7,
-            fontSize: 16,
-            color: "#000"
-          }}>
-            {finalFeedback}
-          </div>
-          <div style={{ textAlign: "center", marginTop: 25 }}>
+
+        {!showTest ? (
+          <div style={{ textAlign: "center", marginBottom: 40 }}>
+            <div style={{ marginBottom: 25, padding: 20, borderRadius: 12, backgroundColor: "#F0F8F0", border: "2px solid #40E0D0" }}>
+              <p style={{ margin: "0 0 15px 0", color: "#000", fontSize: 18, fontWeight: 600 }}>Kas soovid testi ajal abiakent kasutada?</p>
+              <div style={{ display: "flex", gap: 15, justifyContent: "center" }}>
+                <button
+                  onClick={() => setWantsHelp(true)}
+                  style={{
+                    padding: "12px 24px",
+                    background: wantsHelp ? "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)" : "#E0E0E0",
+                    color: wantsHelp ? "white" : "#000",
+                    border: "none",
+                    borderRadius: 10,
+                    cursor: "pointer",
+                    fontSize: 16,
+                    fontWeight: "bold",
+                    boxShadow: wantsHelp ? "0 4px 12px rgba(76,175,80,0.3)" : "none"
+                  }}
+                >
+                  ✅ Jah, aitab
+                </button>
+                <button
+                  onClick={() => setWantsHelp(false)}
+                  style={{
+                    padding: "12px 24px",
+                    background: !wantsHelp ? "linear-gradient(135deg, #DC3545 0%, #C82333 100%)" : "#E0E0E0",
+                    color: !wantsHelp ? "white" : "#000",
+                    border: "none",
+                    borderRadius: 10,
+                    cursor: "pointer",
+                    fontSize: 16,
+                    fontWeight: "bold",
+                    boxShadow: !wantsHelp ? "0 4px 12px rgba(220,53,69,0.3)" : "none"
+                  }}
+                >
+                  ❌ Ei, ise
+                </button>
+              </div>
+            </div>
             <button
               onClick={startTest}
               style={{
-                background: "linear-gradient(135deg, #2196F3 0%, #1976D2 100%)",
+                background: "linear-gradient(135deg, #FF9800 0%, #F57C00 100%)",
                 color: "white",
-                padding: "15px 30px",
+                padding: "18px 35px",
                 border: "none",
-                borderRadius: 12,
-                cursor: "pointer",
-                marginRight: 15,
-                fontSize: 16,
+                borderRadius: 15,
+                fontSize: 20,
                 fontWeight: "bold",
-                boxShadow: "0 4px 12px rgba(33,150,243,0.3)"
+                cursor: "pointer",
+                boxShadow: "0 6px 20px rgba(255,152,0,0.3)",
+                transition: "all 0.3s ease"
               }}
             >
-              🔄 Proovi uuesti
+              🚀 Alusta testi ({helpContent.test.length} küsimust)
             </button>
-            <Link href="/">
+          </div>
+        ) : testCompleted ? (
+          <div style={{ marginBottom: 40, backgroundColor: "#F0F8F0", padding: 30, borderRadius: 15, border: "3px solid #40E0D0" }}>
+            <h2 style={{ fontSize: 28, color: "#000", textAlign: "center", marginBottom: 20 }}>🎉 Test lõpetatud!</h2>
+            <div style={{
+              padding: 25,
+              backgroundColor: "#FAFFFD",
+              borderRadius: 12,
+              border: "2px solid #40E0D0",
+              whiteSpace: "pre-line",
+              lineHeight: 1.7,
+              fontSize: 16,
+              color: "#000"
+            }}>
+              {finalFeedback}
+            </div>
+            <div style={{ textAlign: "center", marginTop: 25 }}>
               <button
+                onClick={startTest}
                 style={{
-                  background: "linear-gradient(135deg, #6C757D 0%, #495057 100%)",
+                  background: "linear-gradient(135deg, #2196F3 0%, #1976D2 100%)",
                   color: "white",
                   padding: "15px 30px",
                   border: "none",
                   borderRadius: 12,
                   cursor: "pointer",
+                  marginRight: 15,
                   fontSize: 16,
                   fontWeight: "bold",
-                  boxShadow: "0 4px 12px rgba(108,117,125,0.3)"
+                  boxShadow: "0 4px 12px rgba(33,150,243,0.3)"
                 }}
               >
-                🏠 Tagasi avalehele
+                🔄 Proovi uuesti
               </button>
-            </Link>
-          </div>
-        </div>
-      ) : (
-        <div style={{ marginBottom: 40, backgroundColor: "#F0F8F0", padding: 25, borderRadius: 12, border: "2px solid #40E0D0" }}>
-          <h2 style={{ fontSize: 26, color: "#000", marginBottom: 20, textAlign: "center" }}>🧠 Test ({helpContent.test.length} küsimust)</h2>
-
-          <div style={{
-            padding: 25,
-            backgroundColor: "#E0F2F1",
-            borderRadius: 12,
-            border: "2px solid #008B8B",
-            position: "relative"
-          }}>
-            <div style={{
-              position: "absolute",
-              top: 15,
-              right: 15,
-              background: "linear-gradient(135deg, #FFD700 0%, #FFA500 100%)",
-              color: "#000",
-              padding: "8px 15px",
-              borderRadius: 20,
-              fontSize: 16,
-              fontWeight: "bold",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.2)"
-            }}>
-              {currentQuestion + 1} / {helpContent.test.length}
-            </div>
-
-            <h3 style={{ marginTop: 0, color: "#000", fontSize: 20 }}>Küsimus {currentQuestion + 1}</h3>
-            <p style={{ fontSize: 18, marginBottom: 25, fontWeight: "bold", color: "#000", lineHeight: 1.6 }}>
-              {helpContent.test[currentQuestion].question}
-            </p>
-
-            {helpContent.test[currentQuestion].type === "multiple-choice" ? (
-              <div style={{ display: "grid", gap: 15 }}>
-                {helpContent.test[currentQuestion].options!.map((option, i) => (
-                  <button
-                    key={i}
-                    onClick={() => answerQuestion(option.charAt(0))}
-                    disabled={answers[currentQuestion] !== ""}
-                    style={{
-                      padding: 18,
-                      borderRadius: 12,
-                      border: "3px solid #40E0D0",
-                      background: answers[currentQuestion] === option.charAt(0) ?
-                        (answers[currentQuestion] === helpContent.test[currentQuestion].correct ? "#4CAF50" : "#DC3545") :
-                        "#FAFFFD",
-                      color: answers[currentQuestion] === option.charAt(0) ? "white" : "#006400",
-                      cursor: answers[currentQuestion] === "" ? "pointer" : "default",
-                      textAlign: "left",
-                      fontSize: 16,
-                      fontWeight: "bold",
-                      transition: "all 0.3s ease",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
-                    }}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div>
-                <textarea
-                  value={currentAnswer}
-                  onChange={(e) => setCurrentAnswer(e.target.value)}
-                  placeholder="Kirjuta siia oma vastus... Selgita oma mõtteid ja põhjenda oma seisukohta."
-                  style={{
-                    width: "100%",
-                    minHeight: 140,
-                    padding: 20,
-                    borderRadius: 12,
-                    border: "3px solid #40E0D0",
-                    fontSize: 16,
-                    lineHeight: 1.6,
-                    marginBottom: 20,
-                    backgroundColor: "#FAFFFD",
-                    color: "#000",
-                    resize: "vertical"
-                  }}
-                  disabled={answers[currentQuestion] !== ""}
-                />
+              <Link href="/">
                 <button
-                  onClick={() => answerQuestion(currentAnswer)}
-                  disabled={currentAnswer.trim() === "" || answers[currentQuestion] !== ""}
                   style={{
-                    background: "linear-gradient(135deg, #2196F3 0%, #1976D2 100%)",
+                    background: "linear-gradient(135deg, #6C757D 0%, #495057 100%)",
                     color: "white",
                     padding: "15px 30px",
                     border: "none",
                     borderRadius: 12,
-                    cursor: currentAnswer.trim() !== "" && answers[currentQuestion] === "" ? "pointer" : "not-allowed",
+                    cursor: "pointer",
                     fontSize: 16,
                     fontWeight: "bold",
-                    boxShadow: "0 4px 12px rgba(33,150,243,0.3)",
-                    transition: "all 0.3s ease"
+                    boxShadow: "0 4px 12px rgba(108,117,125,0.3)"
                   }}
                 >
-                  Esita vastus
+                  🏠 Tagasi avalehele
                 </button>
-              </div>
-            )}
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div style={{ marginBottom: 40, backgroundColor: "#F0F8F0", padding: 25, borderRadius: 12, border: "2px solid #40E0D0" }}>
+            <h2 style={{ fontSize: 26, color: "#000", marginBottom: 20, textAlign: "center" }}>🧠 Test ({helpContent.test.length} küsimust)</h2>
 
-            {testResults[currentQuestion] && (
+            <div style={{
+              padding: 25,
+              backgroundColor: "#E0F2F1",
+              borderRadius: 12,
+              border: "2px solid #008B8B",
+              position: "relative"
+            }}>
               <div style={{
-                marginTop: 25,
-                padding: 20,
-                backgroundColor: testResults[currentQuestion].correct ? "#E8F5E8" : "#FFEBEE",
-                borderRadius: 12,
-                border: `3px solid ${testResults[currentQuestion].correct ? "#4CAF50" : "#DC3545"}`,
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                position: "absolute",
+                top: 15,
+                right: 15,
+                background: "linear-gradient(135deg, #FFD700 0%, #FFA500 100%)",
+                color: "#000",
+                padding: "8px 15px",
+                borderRadius: 20,
+                fontSize: 16,
+                fontWeight: "bold",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.2)"
               }}>
-                <p style={{
-                  fontWeight: "bold",
-                  color: testResults[currentQuestion].correct ? "#2E7D32" : "#C62828",
-                  fontSize: 18,
-                  marginBottom: 10
-                }}>
-                  {testResults[currentQuestion].correct ? "✅ Õige!" : "❌ Vajab täiendamist"}
-                </p>
-                <p style={{ color: "#000", lineHeight: 1.6, fontSize: 16 }}>{testResults[currentQuestion].feedback}</p>
-                <p style={{ fontSize: 14, color: "#000", marginTop: 10 }}>
-                  Punktid: {testResults[currentQuestion].points} / {helpContent.test[currentQuestion].points}
-                </p>
-                
-                {canProceed && (
-                  <button
-                    onClick={moveToNextQuestion}
+                {currentQuestion + 1} / {helpContent.test.length}
+              </div>
+
+              <h3 style={{ marginTop: 0, color: "#000", fontSize: 20 }}>Küsimus {currentQuestion + 1}</h3>
+              <p style={{ fontSize: 18, marginBottom: 25, fontWeight: "bold", color: "#000", lineHeight: 1.6 }}>
+                {helpContent.test[currentQuestion].question}
+              </p>
+
+              {helpContent.test[currentQuestion].type === "multiple-choice" ? (
+                <div style={{ display: "grid", gap: 15 }}>
+                  {helpContent.test[currentQuestion].options!.map((option, i) => (
+                    <button
+                      key={i}
+                      onClick={() => answerQuestion(option.charAt(0))}
+                      disabled={answers[currentQuestion] !== ""}
+                      style={{
+                        padding: 18,
+                        borderRadius: 12,
+                        border: "3px solid #40E0D0",
+                        background: answers[currentQuestion] === option.charAt(0) ?
+                          (answers[currentQuestion] === helpContent.test[currentQuestion].correct ? "#4CAF50" : "#DC3545") :
+                          "#FAFFFD",
+                        color: answers[currentQuestion] === option.charAt(0) ? "white" : "#006400",
+                        cursor: answers[currentQuestion] === "" ? "pointer" : "default",
+                        textAlign: "left",
+                        fontSize: 16,
+                        fontWeight: "bold",
+                        transition: "all 0.3s ease",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+                      }}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div>
+                  <textarea
+                    value={currentAnswer}
+                    onChange={(e) => setCurrentAnswer(e.target.value)}
+                    placeholder="Kirjuta siia oma vastus... Selgita oma mõtteid ja põhjenda oma seisukohta."
                     style={{
-                      marginTop: 20,
-                      background: "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)",
+                      width: "100%",
+                      minHeight: 140,
+                      padding: 20,
+                      borderRadius: 12,
+                      border: "3px solid #40E0D0",
+                      fontSize: 16,
+                      lineHeight: 1.6,
+                      marginBottom: 20,
+                      backgroundColor: "#FAFFFD",
+                      color: "#000",
+                      resize: "vertical"
+                    }}
+                    disabled={answers[currentQuestion] !== ""}
+                  />
+                  <button
+                    onClick={() => answerQuestion(currentAnswer)}
+                    disabled={currentAnswer.trim() === "" || answers[currentQuestion] !== ""}
+                    style={{
+                      background: "linear-gradient(135deg, #2196F3 0%, #1976D2 100%)",
                       color: "white",
                       padding: "15px 30px",
                       border: "none",
-                      borderRadius: 10,
-                      cursor: "pointer",
-                      fontSize: 18,
-                      fontWeight: "bold",
-                      boxShadow: "0 6px 16px rgba(76,175,80,0.4)",
-                      width: "100%",
-                      transition: "all 0.3s ease",
-                      textAlign: "center"
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.target as HTMLButtonElement).style.background = "linear-gradient(135deg, #45a049 0%, #3d8b40 100%)";
-                      (e.target as HTMLButtonElement).style.transform = "translateY(-2px)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.target as HTMLButtonElement).style.background = "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)";
-                      (e.target as HTMLButtonElement).style.transform = "translateY(0)";
-                    }}
-                  >
-                    ➡️ Liigume edasi →
-                  </button>
-                )}
-              </div>
-            )}
-
-            {showFeedback && !testResults[currentQuestion] && (
-              <div style={{
-                marginTop: 25,
-                padding: 20,
-                backgroundColor: "#E3F2FD",
-                borderRadius: 12,
-                border: "3px solid #2196F3",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
-              }}>
-                <p style={{
-                  fontWeight: "bold",
-                  color: "#1565C0",
-                  fontSize: 16,
-                  marginBottom: 10
-                }}>
-                  Tagasiside:
-                </p>
-                <p style={{ color: "#000", lineHeight: 1.6, fontSize: 16 }}>{feedbackMessage}</p>
-                
-                {canProceed && showHelpPrompt && wantsHelp && (
-                  <button
-                    onClick={() => setShowHelpOverlay(true)}
-                    style={{
-                      marginTop: 15,
-                      marginBottom: 12,
-                      background: "linear-gradient(135deg, #2196F3 0%, #1976D2 100%)",
-                      color: "white",
-                      padding: "12px 22px",
-                      border: "none",
-                      borderRadius: 10,
-                      cursor: "pointer",
+                      borderRadius: 12,
+                      cursor: currentAnswer.trim() !== "" && answers[currentQuestion] === "" ? "pointer" : "not-allowed",
                       fontSize: 16,
                       fontWeight: "bold",
                       boxShadow: "0 4px 12px rgba(33,150,243,0.3)",
-                      display: "block",
-                      marginLeft: "auto",
-                      marginRight: "auto"
+                      transition: "all 0.3s ease"
                     }}
                   >
-                    🔑 Abiaken
+                    Esita vastus
                   </button>
-                )}
+                </div>
+              )}
 
-                {canProceed && (
-                  <button
-                    onClick={moveToNextQuestion}
-                    style={{
-                      marginTop: 20,
-                      background: "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)",
-                      color: "white",
-                      padding: "15px 30px",
-                      border: "none",
-                      borderRadius: 10,
-                      cursor: "pointer",
-                      fontSize: 18,
-                      fontWeight: "bold",
-                      boxShadow: "0 6px 16px rgba(76,175,80,0.4)",
-                      width: "100%",
-                      transition: "all 0.3s ease",
-                      textAlign: "center"
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.target as HTMLButtonElement).style.background = "linear-gradient(135deg, #45a049 0%, #3d8b40 100%)";
-                      (e.target as HTMLButtonElement).style.transform = "translateY(-2px)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.target as HTMLButtonElement).style.background = "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)";
-                      (e.target as HTMLButtonElement).style.transform = "translateY(0)";
-                    }}
-                  >
-                    ➡️ Liigume edasi →
-                  </button>
-                )}
-              </div>
-            )}
-
-            {showHelpOverlay && (
-              <div style={{
-                position: "fixed",
-                inset: 0,
-                zIndex: 9999,
-                backgroundColor: "rgba(0, 0, 0, 0.92)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 20
-              }}>
+              {/* TESTI VASTUSE TAGASISIDE KAST */}
+              {testResults[currentQuestion] && (
                 <div style={{
-                  width: "100%",
-                  maxWidth: 1000,
-                  maxHeight: "95vh",
-                  overflowY: "auto",
-                  borderRadius: 24,
-                  backgroundColor: "#fff",
-                  boxShadow: "0 30px 60px rgba(0,0,0,0.45)",
-                  position: "relative"
+                  marginTop: 25,
+                  padding: 20,
+                  backgroundColor: testResults[currentQuestion].correct ? "#E8F5E8" : "#FFEBEE",
+                  borderRadius: 12,
+                  border: `3px solid ${testResults[currentQuestion].correct ? "#4CAF50" : "#DC3545"}`,
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
                 }}>
-                  <div style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: 24,
-                    borderBottom: "1px solid #E0E0E0"
+                  <p style={{
+                    fontWeight: "bold",
+                    color: testResults[currentQuestion].correct ? "#2E7D32" : "#C62828",
+                    fontSize: 18,
+                    marginBottom: 10
                   }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                      <span style={{ fontSize: 42 }}>🦆</span>
-                      <div>
-                        <p style={{ margin: 0, fontSize: 24, fontWeight: 700, color: "#111" }}>Abiaken</p>
-                        <p style={{ margin: 4, color: "#555", fontSize: 15 }}>Siin näed abi ja võid seejärel edasi liikuda.</p>
-                      </div>
-                    </div>
+                    {testResults[currentQuestion].correct ? "✅ Õige!" : "❌ Vajab täiendamist"}
+                  </p>
+                  <p style={{ color: "#000", lineHeight: 1.6, fontSize: 16 }}>{testResults[currentQuestion].feedback}</p>
+                  <p style={{ fontSize: 14, color: "#000", marginTop: 10 }}>
+                    Punktid: {testResults[currentQuestion].points} / {helpContent.test[currentQuestion].points}
+                  </p>
+
+                  {/* KEELE- JA SISU KONTROLLI TAGASISIDE KUI VASTUS ON VALE JA TAHAB ABI */}
+                  {!testResults[currentQuestion].correct && wantsHelp && (
                     <button
-                      onClick={acceptHelp}
+                      onClick={() => setShowHelpOverlay(true)}
                       style={{
-                        background: "linear-gradient(135deg, #2196F3 0%, #1976D2 100%)",
+                        marginTop: 15,
+                        background: "linear-gradient(135deg, #FF9800 0%, #F57C00 100%)",
                         color: "white",
-                        padding: "12px 22px",
+                        padding: "12px 24px",
                         border: "none",
-                        borderRadius: 12,
+                        borderRadius: 10,
                         cursor: "pointer",
                         fontSize: 16,
                         fontWeight: "bold",
-                        boxShadow: "0 4px 12px rgba(33,150,243,0.25)"
+                        boxShadow: "0 4px 12px rgba(255,152,0,0.3)",
+                        display: "block",
+                        marginLeft: "auto",
+                        marginRight: "auto"
                       }}
                     >
-                      Sulge abi
+                      🔑 Abiaken
                     </button>
-                  </div>
+                  )}
+                  
+                  {canProceed && (
+                    <button
+                      onClick={moveToNextQuestion}
+                      style={{
+                        marginTop: 20,
+                        background: "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)",
+                        color: "white",
+                        padding: "15px 30px",
+                        border: "none",
+                        borderRadius: 10,
+                        cursor: "pointer",
+                        fontSize: 18,
+                        fontWeight: "bold",
+                        boxShadow: "0 6px 16px rgba(76,175,80,0.4)",
+                        width: "100%",
+                        transition: "all 0.3s ease",
+                        textAlign: "center"
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.target as HTMLButtonElement).style.background = "linear-gradient(135deg, #45a049 0%, #3d8b40 100%)";
+                        (e.target as HTMLButtonElement).style.transform = "translateY(-2px)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.target as HTMLButtonElement).style.background = "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)";
+                        (e.target as HTMLButtonElement).style.transform = "translateY(0)";
+                      }}
+                    >
+                      ➡️ Liigume edasi →
+                    </button>
+                  )}
+                </div>
+              )}
 
-                  <div style={{ padding: 24, display: "grid", gap: 24 }}>
-                    <div style={{ borderRadius: 18, overflow: "hidden", backgroundColor: "#000" }}>
-                      <video
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        style={{ width: "100%", display: "block" }}
+              {/* HOIATUSED (EESTI KEELE KONTROLL JNE), ENNE KUI TULEMUS SALVESTATAKSE */}
+              {showFeedback && !testResults[currentQuestion] && (
+                <div style={{
+                  marginTop: 25,
+                  padding: 20,
+                  backgroundColor: "#FFEBEE",
+                  borderRadius: 12,
+                  border: "3px solid #DC3545",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                }}>
+                  <p style={{
+                    fontWeight: "bold",
+                    color: "#C62828",
+                    fontSize: 16,
+                    marginBottom: 10
+                  }}>
+                    ⚠️ Hoiatus:
+                  </p>
+                  <p style={{ color: "#000", lineHeight: 1.6, fontSize: 16 }}>{feedbackMessage}</p>
+                </div>
+              )}
+
+              {/* ABIAKEN OVERLAY */}
+              {showHelpOverlay && (
+                <div style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 9999,
+                  backgroundColor: "rgba(0, 0, 0, 0.92)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 20
+                }}>
+                  <div style={{
+                    width: "100%",
+                    maxWidth: 1000,
+                    maxHeight: "95vh",
+                    overflowY: "auto",
+                    borderRadius: 24,
+                    backgroundColor: "#fff",
+                    boxShadow: "0 30px 60px rgba(0,0,0,0.45)",
+                    position: "relative"
+                  }}>
+                    <div style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: 24,
+                      borderBottom: "1px solid #E0E0E0"
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                        <span style={{ fontSize: 42 }}>🦆</span>
+                        <div>
+                          <p style={{ margin: 0, fontSize: 24, fontWeight: 700, color: "#111" }}>Abiaken</p>
+                          <p style={{ margin: 4, color: "#555", fontSize: 15 }}>Siin näed abi ja võid seejärel edasi liikuda.</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={acceptHelp}
+                        style={{
+                          background: "linear-gradient(135deg, #2196F3 0%, #1976D2 100%)",
+                          color: "white",
+                          padding: "12px 22px",
+                          border: "none",
+                          borderRadius: 12,
+                          cursor: "pointer",
+                          fontSize: 16,
+                          fontWeight: "bold",
+                          boxShadow: "0 4px 12px rgba(33,150,243,0.25)"
+                        }}
                       >
-                        <source src="/videos/grok-video-6d7961a6-907d-47a7-bc67-6bf9b12c8494.mp4" type="video/mp4" />
-                      </video>
+                        Sulge abi
+                      </button>
                     </div>
 
-                    <div style={{ padding: 22, borderRadius: 18, backgroundColor: "#F5F9FF", border: "1px solid #D3E3FF" }}>
-                      <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#111", marginBottom: 14 }}>💡 Mõtle nii:</p>
-                      <p style={{ margin: 0, lineHeight: 1.8, color: "#222", fontSize: 16 }}>
-                        {helpContent.test[currentQuestion].sampleAnswer}
-                      </p>
-                      <p style={{ marginTop: 16, color: "#555", fontSize: 14 }}>
-                        See abi on mõeldud mõtteviisi avamiseks, mitte otse lahenduse andmiseks.
-                      </p>
+                    <div style={{ padding: 24, display: "grid", gap: 24 }}>
+                      <div style={{ borderRadius: 18, overflow: "hidden", backgroundColor: "#000" }}>
+                        <video
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                          style={{ width: "100%", display: "block" }}
+                        >
+                          <source src="/videos/grok-video-6d7961a6-907d-47a7-bc67-6bf9b12c8494.mp4" type="video/mp4" />
+                        </video>
+                      </div>
+
+                      <div style={{ padding: 22, borderRadius: 18, backgroundColor: "#F5F9FF", border: "1px solid #D3E3FF" }}>
+                        <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#111", marginBottom: 14 }}>💡 Mõtle nii:</p>
+                        <p style={{ margin: 0, lineHeight: 1.8, color: "#222", fontSize: 16 }}>
+                          {helpContent.test[currentQuestion].sampleAnswer || helpContent.test[currentQuestion].explanation || "Vaata konspekti ja mõtle põhipunktidele."}
+                        </p>
+                        <p style={{ marginTop: 16, color: "#555", fontSize: 14 }}>
+                          See abi on mõeldud mõtteviisi avamiseks, mitte otse lahenduse andmiseks.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div style={{ textAlign: "center", marginTop: 40 }}>
-        <Link href="/">
-          <button style={{
-            background: "linear-gradient(135deg, #6C757D 0%, #495057 100%)",
-            color: "white",
-            padding: "15px 30px",
-            border: "none",
-            borderRadius: 12,
-            cursor: "pointer",
-            fontSize: 16,
-            fontWeight: "bold",
-            boxShadow: "0 4px 12px rgba(108,117,125,0.3)"
-          }}>
-            🏠 Tagasi avalehele
-          </button>
-        </Link>
-      </div>
+        <div style={{ textAlign: "center", marginTop: 40 }}>
+          <Link href="/">
+            <button style={{
+              background: "linear-gradient(135deg, #6C757D 0%, #495057 100%)",
+              color: "white",
+              padding: "15px 30px",
+              border: "none",
+              borderRadius: 12,
+              cursor: "pointer",
+              fontSize: 16,
+              fontWeight: "bold",
+              boxShadow: "0 4px 12px rgba(108,117,125,0.3)"
+            }}>
+              🏠 Tagasi avalehele
+            </button>
+          </Link>
+        </div>
       </div>
     </main>
   );
 }
+
 export default function Abi() {
   return (
     <Suspense fallback={null}>
